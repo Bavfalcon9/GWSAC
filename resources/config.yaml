@@ -1,0 +1,88 @@
+---
+# Commit names
+commits:
+  # ID for when a file is renamed.
+  file.rename:
+    one: "🔁 rename({ev.old.name} -> {ev.new.name}"
+    many: "@{one with \n}"
+    name: rename
+  # ID for when a file is deleted.
+  file.delete:
+    one: "📛 delete({ev.name}): {ev.lines} lines deleted."
+    many: "🛒 bulk(delete): Deleted {join!(ev.files, ', ')}"
+    name: delete
+  file.create:
+    one: "🆕 create({ev.name})"
+    many: "@{one with \n}"
+    name: create
+  bulk:
+    # Scripts need message!() to add to the message stack
+    one: "🛒 bulk: {script}"
+    script: >
+      current = []
+      each ev.commits as commit {
+        if commit.type in current {
+          continue
+        } else {
+          push!(current, commit)
+        }
+      }
+      // add the types of changes, eg: create, delete, modify
+      message!(join!(current, ', '))
+
+      // add the messages onto the original message
+      msg = ""
+
+      each ev.commits as commit {
+        push!(msg, "\n" + commit.name)
+      }
+
+      message!(msg)
+
+      @error as e {
+        // if there is an error
+        message!(
+          An error occurred when running commit.bulk.script: {e}
+        )
+      }
+
+  # Advanced types
+  function.created:
+    one: "📝 chore({ev.func.name}): "
+
+option:
+  # Whether or not to auto commit, if enabled, must configure auto.settings
+  auto: false
+
+  auto.settings:
+    # Delay can be "no", "false" or a parseable time
+    # Examples:
+    # delay: 10s - 10 seconds
+    # delay: 5m - 5 minutes
+    # delay: 1h1s2m - 1 hour 1 second 2 minutes
+    delay: false
+
+    # Whether or not to commit when a file outside of the cwd is saved.
+    # EG, you're working in "src/lib/test.rs" and then move to "src/network/*" and save a new file called "mod.rs"
+    # this event would be classified as "workspace.moved" and would cause everything in src/lib/* to be committed.
+    workspace.moved: true
+
+    # Prompt settings
+    # => always - Always prompt before auto committing (sends a dialogue)
+    # => once - Only prompt once, and after, don't prompt again for the entire session
+    # => event - Only prompt if the event is different, otherwise only prompt once per event
+    # => false/no - Never ask to auto commit.
+    prompt: always
+
+    prompt.settings:
+      # Dialogue type:
+      # => ui - A window pops up for confirmation
+      # => cli - A cli message pops up
+      # => supress - A message is sent in cli, but acts as if you pressed "y" into the prompt.
+      type: ui
+
+      # Whether or not to stack prompts if they haven't been responded to with options
+      # => one - "One By One" All messages are in a queue, waiting for you to respond to them, when you respond the next one is sent.
+      # => bulk - All messages are sent, regardless if you responded to the previous one. (disabled with ui)
+      # => never - Never stack, and force a response before continuing
+      stack: one
